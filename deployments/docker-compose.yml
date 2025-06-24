@@ -1,0 +1,107 @@
+x-no-pull: &no-pull
+  pull_policy: "never"
+
+services:
+
+  loader:
+    image: docker:20.10.24-cli
+    container_name: image_loader
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../sources:/sources
+    entrypoint: |
+      sh -c "
+        docker load -i /sources/exchange1/exchange1_amd64.tar && \
+        docker tag exchange1:latest exchange1:latest && \
+        docker load -i /sources/exchange2/exchange2_amd64.tar && \
+        docker tag exchange2:latest exchange2:latest && \
+        docker load -i /sources/exchange3/exchange3_amd64.tar && \
+        docker tag exchange3:latest exchange3:latest
+      "
+    networks:
+      - marketflow-net
+
+
+  exchange1:
+    image: exchange1:latest
+    container_name: exchange1
+    <<: *no-pull
+    depends_on:
+      loader:
+        condition: service_completed_successfully
+    ports:
+      - "40101:40101"
+    networks:
+      - marketflow-net
+
+  exchange2:
+    image: exchange2:latest
+    container_name: exchange2
+    <<: *no-pull
+    depends_on:
+      loader:
+        condition: service_completed_successfully
+    ports:
+      - "40102:40102"
+    networks:
+      - marketflow-net
+
+  exchange3:
+    image: exchange3:latest
+    container_name: exchange3
+    <<: *no-pull
+    depends_on:
+      loader:
+        condition: service_completed_successfully
+    ports:
+      - "40103:40103"
+    networks:
+      - marketflow-net
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: marketflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - marketflow-net
+
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - marketflow-net
+
+  marketflow:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+    container_name: marketflow
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - redis
+      - exchange1
+      - exchange2
+      - exchange3
+    env_file:
+      - ../.env
+    networks:
+      - marketflow-net
+
+networks:
+  marketflow-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
