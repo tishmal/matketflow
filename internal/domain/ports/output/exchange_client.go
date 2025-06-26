@@ -7,6 +7,6 @@ import (
 
 type ExchangeClient interface {
 	Connect(config models.ExchangeConfig) error
-	Listen(ctx context.Context, updates chan<- models.PriceUpdate) error
+	Listen(ctx context.Context, updates chan<- models.PriceUpdate, exchange models.ExchangeConfig) error
 	Close() error
 }

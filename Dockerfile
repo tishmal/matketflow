@@ -18,6 +18,8 @@ RUN go mod download
 # Копируем весь проект в контейнер
 COPY . .
 
+COPY .env .env
+
 # Строим приложение
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/marketflow ./cmd/marketflow
 

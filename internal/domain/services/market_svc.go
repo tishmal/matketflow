@@ -122,7 +122,7 @@ func (s *MarketServiceImpl) listenToExchange(exchange models.ExchangeConfig) {
 				}
 			} else {
 				// Listen for updates
-				if err := s.exchangeClient.Listen(s.ctx, s.dataChan); err != nil {
+				if err := s.exchangeClient.Listen(s.ctx, s.dataChan, exchange); err != nil {
 					s.logger.Error("Listen failed", "exchange", exchange.Name, "error", err)
 				}
 			}

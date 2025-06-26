@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -12,13 +13,18 @@ import (
 )
 
 func main() {
+	fmt.Println("Hello")
 	// Setup logger
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 
 	// Load configuration
-	cfg := config.NewConfig()
+	cfg, err := config.NewConfig()
+	if err != nil {
+		logger.Error("Load configuration failed", "error", err)
+		os.Exit(1)
+	}
 
 	// Create output adapters
 	exchangeClient := tcp.NewTCPExchangeClient(logger)

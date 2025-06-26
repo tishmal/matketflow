@@ -18,14 +18,12 @@ type TCPExchangeClient struct {
 	conn   net.Conn
 }
 
-// NEW METHOD
 func NewTCPExchangeClient(logger *slog.Logger) *TCPExchangeClient {
 	return &TCPExchangeClient{
 		logger: logger,
 	}
 }
 
-// ПЕРЕНЕСЕНО из connectAndListen
 func (c *TCPExchangeClient) Connect(config models.ExchangeConfig) error {
 	address := net.JoinHostPort(config.Host, config.Port)
 	c.logger.Info("Connecting to exchange", "exchange", config.Name, "address", address)
@@ -40,8 +38,7 @@ func (c *TCPExchangeClient) Connect(config models.ExchangeConfig) error {
 	return nil
 }
 
-// ПЕРЕНЕСЕНО и ИЗМЕНЕНО из connectAndListen
-func (c *TCPExchangeClient) Listen(ctx context.Context, updates chan<- models.PriceUpdate) error {
+func (c *TCPExchangeClient) Listen(ctx context.Context, updates chan<- models.PriceUpdate, exchange models.ExchangeConfig) error {
 	if c.conn == nil {
 		return fmt.Errorf("not connected")
 	}
@@ -65,16 +62,14 @@ func (c *TCPExchangeClient) Listen(ctx context.Context, updates chan<- models.Pr
 			continue
 		}
 
-		update, err := c.parseMessage(line, "exchange") // TODO: передать имя биржи
+		update, err := c.parseMessage(line, exchange.Name) // передаю имя биржи
 		if err != nil {
 			c.logger.Warn("Failed to parse message", "message", line, "error", err)
 			continue
 		}
 
-		// Reset read timeout on successful read
 		c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
-		// Send to updates channel
 		select {
 		case updates <- update:
 		case <-ctx.Done():
@@ -98,7 +93,6 @@ func (c *TCPExchangeClient) Close() error {
 	return nil
 }
 
-// ПЕРЕНЕСЕНО из parseMessage (без изменений)
 func (c *TCPExchangeClient) parseMessage(message, exchangeName string) (models.PriceUpdate, error) {
 	// Try to parse as JSON first
 	var jsonData map[string]interface{}
@@ -147,7 +141,6 @@ func (c *TCPExchangeClient) parseMessage(message, exchangeName string) (models.P
 	return models.PriceUpdate{}, fmt.Errorf("unknown message format: %s", message)
 }
 
-// ПЕРЕНЕСЕНО из parseJSONMessage (без изменений)
 func (c *TCPExchangeClient) parseJSONMessage(data map[string]interface{}, exchangeName string) (models.PriceUpdate, error) {
 	symbol, ok := data["symbol"].(string)
 	if !ok {

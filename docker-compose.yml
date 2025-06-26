@@ -8,7 +8,7 @@ services:
     container_name: image_loader
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../sources:/sources
+      - ./sources:/sources
     entrypoint: |
       sh -c "
         docker load -i /sources/exchange1/exchange1_amd64.tar && \
@@ -23,8 +23,8 @@ services:
 
 
   exchange1:
-    image: exchange1:latest
-    container_name: exchange1
+    image: ${EXCHANGE1_NAME}:latest
+    container_name: ${EXCHANGE1_NAME}
     <<: *no-pull
     depends_on:
       loader:
@@ -35,8 +35,8 @@ services:
       - marketflow-net
 
   exchange2:
-    image: exchange2:latest
-    container_name: exchange2
+    image: ${EXCHANGE2_NAME}:latest
+    container_name: ${EXCHANGE2_NAME}
     <<: *no-pull
     depends_on:
       loader:
@@ -47,8 +47,8 @@ services:
       - marketflow-net
 
   exchange3:
-    image: exchange3:latest
-    container_name: exchange3
+    image: ${EXCHANGE3_NAME}:latest
+    container_name: ${EXCHANGE3_NAME}
     <<: *no-pull
     depends_on:
       loader:
@@ -83,9 +83,12 @@ services:
 
   marketflow:
     build:
-      context: ..
-      dockerfile: deployments/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     container_name: marketflow
+    volumes:
+      - ./.env:/.env
+
     ports:
       - "8081:8081"
     depends_on:
@@ -94,8 +97,6 @@ services:
       - exchange1
       - exchange2
       - exchange3
-    env_file:
-      - ../.env
     networks:
       - marketflow-net
 
