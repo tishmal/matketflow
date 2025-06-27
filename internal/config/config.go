@@ -10,16 +10,6 @@ import (
 	"time"
 )
 
-// func NewConfig() *Config {
-// 	return &Config{
-// 		Exchanges: []models.ExchangeConfig{
-// 			{Name: "Exchange1", Host: "exchange1", Port: "40101"},
-// 			{Name: "Exchange2", Host: "exchange2", Port: "40102"},
-// 			{Name: "Exchange3", Host: "exchange3", Port: "40103"},
-// 		},
-// 	}
-// }
-
 type Config struct {
 	Postgres         PostgresConfig
 	Redis            RedisConfig
@@ -41,7 +31,7 @@ type PostgresConfig struct {
 
 type RedisConfig struct {
 	Host     string
-	Port     int
+	Port     string
 	Name     string
 	Password string
 	DB       int
@@ -79,11 +69,6 @@ func NewConfig() (*Config, error) {
 		}
 	}
 	pgPort, err := utils.ParseEnvInt("PG_PORT")
-	if err != nil {
-		return nil, err
-	}
-
-	redisPort, err := utils.ParseEnvInt("REDIS_PORT")
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +112,7 @@ func NewConfig() (*Config, error) {
 		},
 		Redis: RedisConfig{
 			Host:     os.Getenv("REDIS_HOST"),
-			Port:     redisPort,
+			Port:     os.Getenv("REDIS_PORT"),
 			Name:     os.Getenv("REDIS_DB"),
 			Password: os.Getenv("PG_PASSWORD"),
 			DB:       redisDB,

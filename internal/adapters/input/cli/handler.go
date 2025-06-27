@@ -14,13 +14,15 @@ import (
 type CLIHandler struct {
 	marketService input.MarketService
 	logger        *slog.Logger
+	ctx           context.Context
 }
 
 // NEW METHOD
-func NewCLIHandler(marketService input.MarketService, logger *slog.Logger) *CLIHandler {
+func NewCLIHandler(ctx context.Context, marketService input.MarketService, logger *slog.Logger) *CLIHandler {
 	return &CLIHandler{
 		marketService: marketService,
 		logger:        logger,
+		ctx:           ctx,
 	}
 }
 
@@ -37,7 +39,7 @@ func (h *CLIHandler) Start() error {
 		return nil
 	}
 
-	ctx := context.Background()
+	//
 
 	// Setup graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -50,5 +52,5 @@ func (h *CLIHandler) Start() error {
 	}()
 
 	// Start processing
-	return h.marketService.Start(ctx)
+	return h.marketService.Start(h.ctx)
 }

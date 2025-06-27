@@ -73,7 +73,6 @@ func (s *MarketServiceImpl) Stop() error {
 	return nil
 }
 
-// ИЗМЕНЕНО: теперь использует PricePublisher интерфейс
 func (s *MarketServiceImpl) dataCollector() {
 	s.logger.Info("Starting data collector")
 
