@@ -46,10 +46,13 @@ func main() {
 
 	// Create domain service
 	marketService := services.NewMarketService(
+		ctx,
 		exchangeClient,
 		pricePublisher,
 		cfg.Exchanges,
 		logger,
+		rdb,
+		cfg.RedisTTL,
 	)
 
 	// Create input adapter

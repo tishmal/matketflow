@@ -8,6 +8,8 @@ import (
 
 	"marketflow/internal/domain/models"
 	"marketflow/internal/domain/ports/output"
+
+	redis "github.com/redis/go-redis/v9"
 )
 
 type MarketServiceImpl struct {
@@ -17,28 +19,31 @@ type MarketServiceImpl struct {
 	dataChan       chan models.PriceUpdate
 	wg             sync.WaitGroup
 	ctx            context.Context
-	cancel         context.CancelFunc
 	logger         *slog.Logger
+	redisClient    *redis.Client
+	redisTTL       time.Duration
 	reconnectCh    chan models.ExchangeConfig
 }
 
 // NEW METHOD - заменяет NewMarketDataProcessor
 func NewMarketService(
+	ctx context.Context,
 	exchangeClient output.ExchangeClient,
 	pricePublisher output.PricePublisher,
 	exchanges []models.ExchangeConfig,
 	logger *slog.Logger,
+	redisClient *redis.Client,
+	redisTTL time.Duration,
 ) *MarketServiceImpl {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	return &MarketServiceImpl{
 		exchanges:      exchanges,
 		exchangeClient: exchangeClient,
 		pricePublisher: pricePublisher,
 		dataChan:       make(chan models.PriceUpdate, 1000),
 		ctx:            ctx,
-		cancel:         cancel,
 		logger:         logger,
+		redisClient:    redisClient,
+		redisTTL:       redisTTL,
 		reconnectCh:    make(chan models.ExchangeConfig, 10),
 	}
 }
@@ -67,7 +72,6 @@ func (s *MarketServiceImpl) Start(ctx context.Context) error {
 
 func (s *MarketServiceImpl) Stop() error {
 	s.logger.Info("Stopping MarketFlow")
-	s.cancel()
 	close(s.dataChan)
 	close(s.reconnectCh)
 	return nil
@@ -85,12 +89,25 @@ func (s *MarketServiceImpl) dataCollector() {
 			if !ok {
 				return
 			}
+			// Установка значения в Redis
+			key := update.Exchange + ":" + update.Symbol
+			if err := s.redisClient.Set(s.ctx, key, update.Price, s.redisTTL).Err(); err != nil {
+				s.logger.Error("Failed to write to Redis", "error", err)
+			}
+
+			// Получение значения
+			val, err := s.redisClient.Get(s.ctx, key).Result()
+			if err != nil {
+				panic(err)
+			}
+
 			// Используем интерфейс вместо прямого вывода
-			if err := s.pricePublisher.Publish(update); err != nil {
+			if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
 				s.logger.Error("Failed to publish price update", "error", err)
 			}
 		}
 	}
+
 }
 
 // ИЗМЕНЕНО: теперь использует ExchangeClient интерфейс
