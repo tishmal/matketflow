@@ -29,7 +29,7 @@ uname -m
 # arm64/aarch64 = arm64
 ```
 
-### 3. Запуск системы
+### 3. 🏁 Запуск (локально)
 
 #### Ручная настройка
 ```bash
@@ -212,5 +212,6 @@ docker-compose p
 
 ---
 
-**Автор**: tishmal
-**Email**: arturtimur201998@gmail.com
+## 👨🏻‍💻 Автор
+
+- [![Status](https://img.shields.io/badge/alem-tishmal-success?logo=github)](https://platform.alem.school/git/tishmal) <a href="https://t.me/tim_shm" target="_blank"><img src="https://img.shields.io/badge/telegram-@tishmal-blue?logo=Telegram" alt="Status" /></a>

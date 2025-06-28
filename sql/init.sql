@@ -1,5 +1,3 @@
-
-
 --Подключаемся к базе данных marketflow
 \c marketflow;
 
