@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS market_data (
     exchange VARCHAR(20) NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
     average_price DECIMAL(20,8) NOT NULL,
-    min_price DECIMAL(20,8) NOT NULL,
-    max_price DECIMAL(20,8) NOT NULL,
+    min_price DECIMAL(20,8),
+    max_price DECIMAL(20,8),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

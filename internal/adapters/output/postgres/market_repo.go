@@ -19,7 +19,7 @@ func NewMarketRepo(ctx context.Context, conn *pgx.Conn) *MarketRepo {
 func (r *MarketRepo) InsertMarketData(exchange, symbol string, price float64, ts time.Time) error {
 	_, err := r.conn.Exec(
 		context.Background(),
-		`INSERT INTO market_data (exchange, symbol, price, timestamp) VALUES ($1, $2, $3, $4)`,
+		`INSERT INTO market_data (exchange, pair_name, average_price, timestamp) VALUES ($1, $2, $3, $4)`,
 		exchange, symbol, price, ts,
 	)
 	return err

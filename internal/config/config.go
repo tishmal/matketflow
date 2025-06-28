@@ -107,7 +107,7 @@ func NewConfig() (*Config, error) {
 			Port:     pgPort,
 			User:     os.Getenv("PG_USER"),
 			Password: os.Getenv("PG_PASSWORD"),
-			NameDB:   os.Getenv("POSTGRES_DB"),
+			NameDB:   os.Getenv("PG_NAME"),
 			SSLMode:  os.Getenv("PG_SSLMODE"),
 		},
 		Redis: RedisConfig{

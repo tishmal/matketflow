@@ -8,8 +8,6 @@ import (
 
 	"marketflow/internal/domain/models"
 	"marketflow/internal/domain/ports/output"
-
-	redis "github.com/redis/go-redis/v9"
 )
 
 type MarketServiceImpl struct {
@@ -20,8 +18,9 @@ type MarketServiceImpl struct {
 	wg             sync.WaitGroup
 	ctx            context.Context
 	logger         *slog.Logger
-	redisClient    *redis.Client
 	redisTTL       time.Duration
+	redisClient    output.RedisClient
+	db             output.MarketRepository
 	reconnectCh    chan models.ExchangeConfig
 }
 
@@ -44,6 +43,7 @@ func NewMarketService(
 		ctx:            ctx,
 		logger:         logger,
 		redisClient:    redisClient,
+		db:             db,
 		redisTTL:       redisTTL,
 		reconnectCh:    make(chan models.ExchangeConfig, 10),
 	}
@@ -92,19 +92,14 @@ func (s *MarketServiceImpl) dataCollector() {
 			}
 			// Установка значения в Redis
 			key := update.Exchange + ":" + update.Symbol
-			if err := s.redisClient.Set(s.ctx, key, update.Price, s.redisTTL).Err(); err != nil {
+			if err := s.redisClient.Set(s.ctx, key, update.Price, s.redisTTL); err != nil {
 				s.logger.Error("Failed to write to Redis", "error", err)
 			}
 
 			// Получение значения
-			val, err := s.redisClient.Get(s.ctx, key).Result()
+			val, err := s.redisClient.Get(s.ctx, key)
 			if err != nil {
 				panic(err)
-			}
-
-			// Используем интерфейс вместо прямого вывода
-			if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
-				s.logger.Error("Failed to publish price update", "error", err)
 			}
 
 			// сохраняем в postgres
@@ -112,6 +107,16 @@ func (s *MarketServiceImpl) dataCollector() {
 			if err != nil {
 				s.logger.Error("Failed to save to PostgreSQL", "error", err)
 			}
+
+			// Вывод данных из редиса
+			if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
+				s.logger.Error("Failed to publish price update", "error", err)
+			}
+
+			// // Вывод данных из postgres
+			// if err := s.pricePublisher.PublishRostgres(key, val, update); err != nil {
+			// 	s.logger.Error("Failed to publish price update", "error", err)
+			// }
 		}
 	}
 

@@ -9,6 +9,8 @@ import (
 
 	"marketflow/internal/adapters/input/cli"
 	"marketflow/internal/adapters/output/console"
+	"marketflow/internal/adapters/output/postgres"
+	redisAdapter "marketflow/internal/adapters/output/redis"
 	"marketflow/internal/adapters/output/tcp"
 	"marketflow/internal/config"
 	"marketflow/internal/domain/services"
@@ -34,7 +36,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	addrRedis := fmt.Sprintf(cfg.Redis.Host + ":" + cfg.Redis.Port)
+	addrRedis := fmt.Sprint(cfg.Redis.Host + ":" + cfg.Redis.Port)
 
 	// redis
 	rdb := redis.NewClient(&redis.Options{
@@ -44,18 +46,29 @@ func main() {
 	})
 
 	// postgres
-	connString := fmt.Sprintf("%s://%s:%s@%s:%s/%s", cfg.Postgres.Host, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.NameDB)
+	connString := fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.Host,
+		cfg.Postgres.Port,
+		cfg.Postgres.NameDB,
+	)
+
 	conn, err := pgx.Connect(ctx, connString)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 	defer conn.Close(ctx)
 
-	// инициализация репо...
-
 	// Create output adapters
 	exchangeClient := tcp.NewTCPExchangeClient(logger)
 	pricePublisher := console.NewConsolePricePublisher(logger)
+
+	// redis repo
+	redi := redisAdapter.NewRedisAdapter(rdb)
+	// pg repo
+	repo := postgres.NewMarketRepo(ctx, conn)
 
 	// Create domain service
 	marketService := services.NewMarketService(
@@ -64,7 +77,8 @@ func main() {
 		pricePublisher,
 		cfg.Exchanges,
 		logger,
-		rdb,
+		redi,
+		repo,
 		cfg.RedisTTL,
 	)
 
