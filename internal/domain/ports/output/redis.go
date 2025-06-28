@@ -11,4 +11,5 @@ type RedisClient interface {
 	Get(ctx context.Context, key string) (string, error) // ← возвращает уже обработанные данные
 	ZAdd(ctx context.Context, key string, score float64, member interface{}) error
 	ZRangeByScore(ctx context.Context, key string, min, max string) ([]string, error)
+	ZRemRangeByScore(ctx context.Context, key string, min, max string) error
 }

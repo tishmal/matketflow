@@ -70,7 +70,7 @@ func main() {
 	// redis repo
 	redi := redisAdapter.NewRedisAdapter(rdb)
 	// pg repo
-	repo := postgres.NewMarketRepo(ctx, conn)
+	repo := postgres.NewMarketRepo(ctx, conn, logger)
 
 	// Create domain service
 	marketService := services.NewMarketService(

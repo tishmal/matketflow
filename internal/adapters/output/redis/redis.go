@@ -43,3 +43,9 @@ func (r *RedisAdapter) ZRangeByScore(ctx context.Context, key string, min, max s
 		Max: max,
 	}).Result()
 }
+
+// удаляем устаревшие записи, чтобы Redis не разрастался бесконечно, старше 60 секунд
+func (r *RedisAdapter) ZRemRangeByScore(ctx context.Context, key string, min, max string) error {
+	cmd := r.client.ZRemRangeByScore(ctx, key, min, max)
+	return cmd.Err()
+}

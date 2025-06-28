@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -91,10 +92,7 @@ func (s *MarketServiceImpl) dataCollector() {
 			if !ok {
 				return
 			}
-			// Установка значения в Redis
-			// if err := s.redisClient.Set(s.ctx, key, update.Price, s.redisTTL); err != nil {
-			// 	s.logger.Error("Failed to write to Redis", "error", err)
-			// }
+
 			key := update.Exchange + ":" + update.Symbol
 			score := float64(time.Now().Unix())
 
@@ -103,7 +101,7 @@ func (s *MarketServiceImpl) dataCollector() {
 				s.logger.Error("Failed to write to Redis ZSet", "error", err)
 			}
 
-			//получаем за минуту
+			//получаем данные из Redis за минуту
 			now := time.Now().Unix()
 			min := fmt.Sprintf("%d", now-60)
 			max := fmt.Sprintf("%d", now)
@@ -113,17 +111,35 @@ func (s *MarketServiceImpl) dataCollector() {
 				s.logger.Error("Failed to get recent values from Redis", "error", err)
 			}
 
-			// сохраняем в postgres
-			err = s.db.InsertMarketData(update.Exchange, update.Symbol, update.Price, time.Now())
+			// парсим прайс
+			var prices []float64
+			for _, v := range values {
+				price, err := strconv.ParseFloat(v, 64)
+				if err != nil {
+					s.logger.Error("Failed to parse price", "value", v, "error", err)
+					continue
+				}
+				prices = append(prices, price)
+			}
+
+			// сохраняем из редиса в postgres
+			err = s.db.InsertMarketData(update.Exchange, update.Symbol, prices, time.Now())
 			if err != nil {
 				s.logger.Error("Failed to save to PostgreSQL", "error", err)
 			}
 
-			// Вывод данных из редиса
-			for _, val := range values {
-				if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
-					s.logger.Error("Failed to publish price update", "error", err)
-				}
+			// // Вывод данных из редиса
+			// for _, val := range values {
+			// 	if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
+			// 		s.logger.Error("Failed to publish price update", "error", err)
+			// 	}
+			// }
+
+			// удаляем из редиса устаревшие данные
+			cutoff := time.Now().Add(-1 * time.Minute).Unix()
+			err = s.redisClient.ZRemRangeByScore(s.ctx, key, "0", fmt.Sprintf("%d", cutoff))
+			if err != nil {
+				s.logger.Error("Failed to clean old Redis data", "error", err)
 			}
 		}
 	}
