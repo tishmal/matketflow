@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -91,15 +92,25 @@ func (s *MarketServiceImpl) dataCollector() {
 				return
 			}
 			// Установка значения в Redis
+			// if err := s.redisClient.Set(s.ctx, key, update.Price, s.redisTTL); err != nil {
+			// 	s.logger.Error("Failed to write to Redis", "error", err)
+			// }
 			key := update.Exchange + ":" + update.Symbol
-			if err := s.redisClient.Set(s.ctx, key, update.Price, s.redisTTL); err != nil {
-				s.logger.Error("Failed to write to Redis", "error", err)
+			score := float64(time.Now().Unix())
+
+			// cохраняем все цены за минуту в Redis
+			if err := s.redisClient.ZAdd(s.ctx, key, score, update.Price); err != nil {
+				s.logger.Error("Failed to write to Redis ZSet", "error", err)
 			}
 
-			// Получение значения
-			_, err := s.redisClient.Get(s.ctx, key)
+			//получаем за минуту
+			now := time.Now().Unix()
+			min := fmt.Sprintf("%d", now-60)
+			max := fmt.Sprintf("%d", now)
+
+			values, err := s.redisClient.ZRangeByScore(s.ctx, key, min, max)
 			if err != nil {
-				panic(err)
+				s.logger.Error("Failed to get recent values from Redis", "error", err)
 			}
 
 			// сохраняем в postgres
@@ -108,10 +119,12 @@ func (s *MarketServiceImpl) dataCollector() {
 				s.logger.Error("Failed to save to PostgreSQL", "error", err)
 			}
 
-			// // Вывод данных из редиса
-			// if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
-			// 	s.logger.Error("Failed to publish price update", "error", err)
-			// }
+			// Вывод данных из редиса
+			for _, val := range values {
+				if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
+					s.logger.Error("Failed to publish price update", "error", err)
+				}
+			}
 		}
 	}
 
