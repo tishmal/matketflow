@@ -97,7 +97,7 @@ func (s *MarketServiceImpl) dataCollector() {
 			}
 
 			// Получение значения
-			val, err := s.redisClient.Get(s.ctx, key)
+			_, err := s.redisClient.Get(s.ctx, key)
 			if err != nil {
 				panic(err)
 			}
@@ -108,13 +108,8 @@ func (s *MarketServiceImpl) dataCollector() {
 				s.logger.Error("Failed to save to PostgreSQL", "error", err)
 			}
 
-			// Вывод данных из редиса
-			if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
-				s.logger.Error("Failed to publish price update", "error", err)
-			}
-
-			// // Вывод данных из postgres
-			// if err := s.pricePublisher.PublishRostgres(key, val, update); err != nil {
+			// // Вывод данных из редиса
+			// if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
 			// 	s.logger.Error("Failed to publish price update", "error", err)
 			// }
 		}

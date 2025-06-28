@@ -47,13 +47,15 @@ func main() {
 
 	// postgres
 	connString := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.Postgres.User,
 		cfg.Postgres.Password,
 		cfg.Postgres.Host,
 		cfg.Postgres.Port,
 		cfg.Postgres.NameDB,
+		cfg.Postgres.SSLMode,
 	)
+	fmt.Println(connString)
 
 	conn, err := pgx.Connect(ctx, connString)
 	if err != nil {

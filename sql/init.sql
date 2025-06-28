@@ -1,8 +1,7 @@
--- Создание базы данных marketflow (если не существует)
--- CREATE DATABASE marketflow;
 
--- Подключаемся к базе данных marketflow
--- \c marketflow;
+
+--Подключаемся к базе данных marketflow
+\c marketflow;
 
 -- Создание таблицы для хранения агрегированных данных
 CREATE TABLE IF NOT EXISTS market_data (
