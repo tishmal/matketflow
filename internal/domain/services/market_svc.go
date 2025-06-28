@@ -105,6 +105,7 @@ func (s *MarketServiceImpl) dataCollector() {
 			if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
 				s.logger.Error("Failed to publish price update", "error", err)
 			}
+
 		}
 	}
 
