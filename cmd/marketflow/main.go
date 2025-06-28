@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 
@@ -12,6 +13,7 @@ import (
 	"marketflow/internal/config"
 	"marketflow/internal/domain/services"
 
+	pgx "github.com/jackc/pgx/v5"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -34,11 +36,22 @@ func main() {
 
 	addrRedis := fmt.Sprintf(cfg.Redis.Host + ":" + cfg.Redis.Port)
 
+	// redis
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addrRedis,          // адрес Redis-сервера
 		Password: cfg.Redis.Password, // если нет пароля
 		DB:       cfg.Redis.DB,       // номер БД
 	})
+
+	// postgres
+	connString := fmt.Sprintf("%s://%s:%s@%s:%s/%s", cfg.Postgres.Host, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.NameDB)
+	conn, err := pgx.Connect(ctx, connString)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	// инициализация репо...
 
 	// Create output adapters
 	exchangeClient := tcp.NewTCPExchangeClient(logger)

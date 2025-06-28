@@ -12,7 +12,6 @@ type ConsolePricePublisher struct {
 	logger *slog.Logger
 }
 
-// NEW METHOD
 func NewConsolePricePublisher(logger *slog.Logger) *ConsolePricePublisher {
 	return &ConsolePricePublisher{
 		logger: logger,

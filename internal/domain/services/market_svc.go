@@ -32,7 +32,8 @@ func NewMarketService(
 	pricePublisher output.PricePublisher,
 	exchanges []models.ExchangeConfig,
 	logger *slog.Logger,
-	redisClient *redis.Client,
+	redisClient output.RedisClient,
+	db output.MarketRepository,
 	redisTTL time.Duration,
 ) *MarketServiceImpl {
 	return &MarketServiceImpl{
@@ -106,6 +107,11 @@ func (s *MarketServiceImpl) dataCollector() {
 				s.logger.Error("Failed to publish price update", "error", err)
 			}
 
+			// сохраняем в postgres
+			err = s.db.InsertMarketData(update.Exchange, update.Symbol, update.Price, time.Now())
+			if err != nil {
+				s.logger.Error("Failed to save to PostgreSQL", "error", err)
+			}
 		}
 	}
 

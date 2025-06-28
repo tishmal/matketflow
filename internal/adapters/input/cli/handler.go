@@ -26,7 +26,7 @@ func NewCLIHandler(ctx context.Context, marketService input.MarketService, logge
 	}
 }
 
-// ПЕРЕНЕСЕНО из main (логика обработки сигналов)
+// логика обработки сигналов
 func (h *CLIHandler) Start() error {
 	// Handle command line arguments
 	if len(os.Args) > 1 && os.Args[1] == "--help" {
