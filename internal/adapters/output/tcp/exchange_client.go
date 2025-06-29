@@ -113,7 +113,7 @@ func (c *TCPExchangeClient) parseMessage(message, exchangeName string) (models.P
 
 		return models.PriceUpdate{
 			Exchange:  exchangeName,
-			Symbol:    symbol,
+			Pair:      symbol,
 			Price:     price,
 			Timestamp: time.Now(),
 		}, nil
@@ -132,7 +132,7 @@ func (c *TCPExchangeClient) parseMessage(message, exchangeName string) (models.P
 
 		return models.PriceUpdate{
 			Exchange:  exchangeName,
-			Symbol:    symbol,
+			Pair:      symbol,
 			Price:     price,
 			Timestamp: time.Now(),
 		}, nil
@@ -164,7 +164,7 @@ func (c *TCPExchangeClient) parseJSONMessage(data map[string]interface{}, exchan
 
 	return models.PriceUpdate{
 		Exchange:  exchangeName,
-		Symbol:    symbol,
+		Pair:      symbol,
 		Price:     price,
 		Timestamp: time.Now(),
 	}, nil

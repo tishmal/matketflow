@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,8 @@ type MarketServiceImpl struct {
 	redisClient    output.RedisClient
 	db             output.MarketRepository
 	reconnectCh    chan models.ExchangeConfig
+	knownKeys      map[string]struct{}
+	mu             sync.RWMutex
 }
 
 // NEW METHOD - заменяет NewMarketDataProcessor
@@ -48,6 +51,7 @@ func NewMarketService(
 		db:             db,
 		redisTTL:       redisTTL,
 		reconnectCh:    make(chan models.ExchangeConfig, 10),
+		knownKeys:      make(map[string]struct{}),
 	}
 }
 
@@ -57,6 +61,8 @@ func (s *MarketServiceImpl) Start(ctx context.Context) error {
 
 	// Start data collector (Fan-In pattern)
 	go s.dataCollector()
+
+	go s.aggregator()
 
 	// Start reconnection handler
 	go s.reconnectionHandler()
@@ -88,62 +94,95 @@ func (s *MarketServiceImpl) dataCollector() {
 		case <-s.ctx.Done():
 			s.logger.Info("Data collector stopped")
 			return
+
 		case update, ok := <-s.dataChan:
 			if !ok {
+				s.logger.Info("Data channel closed")
 				return
 			}
 
-			key := update.Exchange + ":" + update.Symbol
+			key := update.Exchange + ":" + update.Pair
 			score := float64(time.Now().Unix())
 
-			// cохраняем все цены за минуту в Redis
+			// Сохраняем цену в Redis (ZSet)
 			if err := s.redisClient.ZAdd(s.ctx, key, score, update.Price); err != nil {
 				s.logger.Error("Failed to write to Redis ZSet", "error", err)
 			}
 
-			//получаем данные из Redis за минуту
-			now := time.Now().Unix()
-			min := fmt.Sprintf("%d", now-60)
-			max := fmt.Sprintf("%d", now)
+			// Добавляем ключ в список известных для агрегатора
+			s.mu.Lock()
+			s.knownKeys[key] = struct{}{}
+			s.mu.Unlock()
 
-			values, err := s.redisClient.ZRangeByScore(s.ctx, key, min, max)
-			if err != nil {
-				s.logger.Error("Failed to get recent values from Redis", "error", err)
-			}
-
-			// парсим прайс
-			var prices []float64
-			for _, v := range values {
-				price, err := strconv.ParseFloat(v, 64)
-				if err != nil {
-					s.logger.Error("Failed to parse price", "value", v, "error", err)
-					continue
-				}
-				prices = append(prices, price)
-			}
-
-			// сохраняем из редиса в postgres
-			err = s.db.InsertMarketData(update.Exchange, update.Symbol, prices, time.Now())
-			if err != nil {
-				s.logger.Error("Failed to save to PostgreSQL", "error", err)
-			}
-
-			// // Вывод данных из редиса
-			// for _, val := range values {
-			// 	if err := s.pricePublisher.PublishRedis(key, val, update); err != nil {
-			// 		s.logger.Error("Failed to publish price update", "error", err)
-			// 	}
-			// }
-
-			// удаляем из редиса устаревшие данные
+			// Удаляем устаревшие данные старше 60 секунд
 			cutoff := time.Now().Add(-1 * time.Minute).Unix()
-			err = s.redisClient.ZRemRangeByScore(s.ctx, key, "0", fmt.Sprintf("%d", cutoff))
-			if err != nil {
+			if err := s.redisClient.ZRemRangeByScore(s.ctx, key, "0", fmt.Sprintf("%d", cutoff)); err != nil {
 				s.logger.Error("Failed to clean old Redis data", "error", err)
 			}
 		}
 	}
+}
 
+func (s *MarketServiceImpl) aggregator() {
+	s.logger.Info("Aggregator started")
+	ticker := time.NewTicker(10 * time.Second) // временно для отладки
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			s.logger.Info("Aggregator stopped")
+			return
+		case <-ticker.C:
+			s.mu.RLock()
+			keys := make([]string, 0, len(s.knownKeys))
+			for k := range s.knownKeys {
+				keys = append(keys, k)
+			}
+			s.mu.RUnlock()
+
+			now := time.Now().Unix()
+			min := fmt.Sprintf("%d", now-60)
+			max := fmt.Sprintf("%d", now)
+
+			for _, key := range keys {
+				parts := strings.Split(key, ":")
+				if len(parts) != 2 {
+					continue
+				}
+				ex := parts[0]
+				pair := parts[1]
+
+				values, err := s.redisClient.ZRangeByScore(s.ctx, key, min, max)
+				if err != nil {
+					s.logger.Error("Aggregator Redis read error", "key", key, "error", err)
+					continue
+				}
+
+				var prices []float64
+				for _, v := range values {
+					price, err := strconv.ParseFloat(v, 64)
+					if err != nil {
+						s.logger.Error("Parse error", "value", v, "error", err)
+						continue
+					}
+					prices = append(prices, price)
+				}
+
+				if len(prices) == 0 {
+					s.logger.Info("No prices to write", "key", key)
+					continue
+				}
+
+				err = s.db.InsertMarketData(ex, pair, prices, time.Now())
+				if err != nil {
+					s.logger.Error("DB insert failed", "error", err)
+				} else {
+					s.logger.Info("Wrote to DB", "exchange", ex, "pair", pair, "count", len(prices))
+				}
+			}
+		}
+	}
 }
 
 // ИЗМЕНЕНО: теперь использует ExchangeClient интерфейс
